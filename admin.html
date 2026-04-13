@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Asistentes</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #c1121f;
+            --black: #000000;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f5;
+            color: var(--black);
+            padding: 40px 20px;
+        }
+
+        .admin-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: var(--black);
+        }
+
+        h1 span {
+            color: var(--red);
+        }
+
+        .btn-excel {
+            background-color: #107c41;
+            /* Verde de Excel */
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-block;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(16, 124, 65, 0.2);
+        }
+
+        .btn-excel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(16, 124, 65, 0.3);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            min-width: 500px;
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #fafafa;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        tr:hover td {
+            background-color: #f9f9f9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-style: italic;
+        }
+
+        .error {
+            background: #ffebee;
+            color: var(--red);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="admin-container">
+        <div class="header">
+            <h1>Cena Unidos <span>Administración</span></h1>
+            <!-- Botón de Excel Directo -->
+            <a href="#" id="btnDownloadExcel" class="btn-excel" target="_blank">Descargar Lista en Excel</a>
+        </div>
+
+        <div id="errorMessage" class="error">
+            Hubo un problema cargando los datos. Asegúrate de haber pegado la URL correcta del CSV y que la hoja esté
+            configurada como de acceso público.
+        </div>
+
+        <div class="table-responsive">
+            <table id="guestsTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Cantidad</th>
+                        <th>Fecha de Registro</th>
+                    </tr>
+                </thead>
+                <tbody id="guestsTbody">
+                    <tr>
+                        <td colspan="3" class="loading">Cargando datos desde Google Sheets...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. PARA QUE SE VEA LA TABLA AQUÍ DIRECTO:
+        // Debes ir a Google Sheets -> Archivo -> Compartir -> Publicar en la Web.
+        // Elige que se publique como "Valores separados por comas (.csv)" y pega ese link aquí:
+        // =========================================================================
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQxjfNpLxUVexPno0mDyY6hYvo20x1ZWp0DTHJO7lm5k_0iK7r4GnOOUL02xvtRb_YxscEuEZQWuRAO/pub?output=csv';
+
+
+        // =========================================================================
+        // 2. PARA QUE FUNCIONE EL BOTON EXCEL:
+        // Entra a tu Google Sheet, mira el enlace arriba en tu navegador.
+        // Pega el ID de tu Google Sheet (la parte larga de letras/números en la URL)
+        // Ejemplo: Si tu url es .../spreadsheets/d/1A2B3C4D__XyZ/edit tu ID es 1A2B3C4D__XyZ
+        // =========================================================================
+        const SHEET_ID = '12Aw5AjMex9JxBZIuRVaXBz5ci7eTx1t38sprB-zgyec';
+
+
+        // Lógica del botón Excel
+        document.getElementById('btnDownloadExcel').href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`;
+
+        // Lógica de carga para la tabla
+        const loadData = async () => {
+            try {
+                if (SHEET_CSV_URL.includes('PEGA_AQUI')) {
+                    throw new Error('Aún no configuraste la URL del CSV');
+                }
+
+                const response = await fetch(SHEET_CSV_URL);
+                if (!response.ok) throw new Error('Error al descargar el CSV');
+
+                const csvText = await response.text();
+                const tbody = document.getElementById('guestsTbody');
+                tbody.innerHTML = ''; // limpiar el loading
+
+                // Convertir CSV a filas
+                const rows = csvText.split('\n');
+
+                // i = 0 lee todas las lineas. Si pusiste titulos en tu Excel ("Nombre", "Cantidad") y quieres ocultarlos, cambia let i=0 por let i=1
+                let itemsEncontrados = 0;
+                for (let i = 0; i < rows.length; i++) {
+                    const columns = rows[i].split(',');
+                    // Revisar que de hecho tenga valores la fila
+                    if (columns.length >= 2 && columns[0].trim() !== '') {
+                        itemsEncontrados++;
+                        const tr = document.createElement('tr');
+
+                        // Columna 1: Nombre
+                        let tdName = document.createElement('td');
+                        tdName.textContent = columns[0].replace(/"/g, '');
+                        tr.appendChild(tdName);
+
+                        // Columna 2: Cantidad
+                        let tdQty = document.createElement('td');
+                        tdQty.textContent = columns[1] ? columns[1].replace(/"/g, '') : '-';
+                        tr.appendChild(tdQty);
+
+                        // Columna 3: Fecha 
+                        let tdDate = document.createElement('td');
+                        tdDate.textContent = columns[2] ? columns[2].replace(/"/g, '') : '-';
+                        tr.appendChild(tdDate);
+
+                        tbody.appendChild(tr);
+                    }
+                }
+
+                if (itemsEncontrados === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="loading">No hay confirmaciones todavía</td></tr>';
+                }
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('guestsTbody').innerHTML = '<tr><td colspan="3" class="loading">Sin datos visibles</td></tr>';
+                document.getElementById('errorMessage').style.display = 'block';
+            }
+        };
+
+        // Iniciar
+        loadData();
+    </script>
+</body>
+
+</html>
